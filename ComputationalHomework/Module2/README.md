@@ -45,7 +45,7 @@ To run the Query_Extend_Part1.py script, execute the following command, where SE
 Query_Extend_Part1.py --sequencer-file SEQUENCERFILE --query-file QUERYFILE
 ```
 
-###Optional Arguments
+### Optional Arguments
 
 By default, the program will output a match between the sequence and query with a length as small as 1. However you can change the minimum match length by including the following optional argument:
 ```
@@ -64,7 +64,9 @@ The program will not output an intermediate file by default, however you can spe
 
 The Query_Extend_Part1.py script will generate the following file when the --intermediate-file-output is enabled: 
 
-sequence_match.json: A file containing the set of sequence reads which matched the query read, including the following information about that match:
+### sequence_match.json
+A file containing the set of sequence reads which matched the query read, including the following information about that match:
+
 - Sequence: entire sequence of the sequencing read which matched
 - ID: identifier of the sequence read which matched
 - sstart: starting coordinate of the sequence read which matched
