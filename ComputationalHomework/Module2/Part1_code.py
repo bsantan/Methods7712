@@ -46,7 +46,8 @@ def parse_file(filename):
         #Separate each read based on fasta file format of ">" character
         if lines[i].startswith(">"):
             fasta_dict["Seq_ID"] = lines[i].replace(">","")
-            fasta_dict["Read"] = lines[i+1]
+            #Remove whitespace after each read to get correct length
+            fasta_dict["Read"] = lines[i+1].strip()
             fasta_list.append(fasta_dict)
 
     return fasta_list
@@ -81,13 +82,13 @@ def sliding_window(query_dict,seq_reads,min_match_length,rev: bool = False):
     match = []
 
     for i in range(0,len(seq_reads)):
-    #for i in range(0,500):
+    #for i in range(0,50):
         #Check if part of sequencing read matches part of query read
         num_seq_comparisons = len(query_dict[0]["Read"])-len(seq_reads[i]["Read"])+1 + 2*(len(seq_reads[i]["Read"])-1)
         #Initialize counts which will define the window of comparison
         startcount = 1
         endcount = 1
-        for j in range(1,num_seq_comparisons-min_match_length):
+        for j in range(0,num_seq_comparisons-min_match_length):
             matching_kmer = {}
             #Evaluation of match of end of sequencing read through first full comparison of sequencing read to beginning of query.
             if (j < len(seq_reads[i]["Read"])): 
@@ -97,7 +98,7 @@ def sliding_window(query_dict,seq_reads,min_match_length,rev: bool = False):
                 #Ending index of sequence read will always be the final base pair
                 seq_match_end = len(seq_reads[i]["Read"])-1
             #Evaluation of match of entire sequence read with a portion of query read.
-            elif (len(seq_reads[i]["Read"]) <= j < (num_seq_comparisons - len(seq_reads[i]["Read"])-1)):
+            elif (len(seq_reads[i]["Read"]) <= j < (num_seq_comparisons - len(seq_reads[i]["Read"])+1)):
                 #Starting index of query read will increase with each iteration
                 query_match_start = startcount
                 #Starting index of sequence read will always be the first base pair
@@ -106,7 +107,7 @@ def sliding_window(query_dict,seq_reads,min_match_length,rev: bool = False):
                 seq_match_end = len(seq_reads[i]["Read"])-1
                 startcount += 1
             #Evaluation of match of start of sequencing read through comparison of first base pair of sequence read to last base pair of query.
-            elif (j >= num_seq_comparisons - len(seq_reads[i]["Read"])-1) and (len(seq_reads[i]["Read"])-endcount) > 0:
+            elif (j >= num_seq_comparisons - len(seq_reads[i]["Read"])+1) and (len(seq_reads[i]["Read"])-endcount) > 0:
                 #Starting index of query read will increase with each iteration
                 query_match_start = startcount
                 #Starting index of sequence read will always be the first base pair
