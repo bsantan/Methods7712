@@ -83,7 +83,7 @@ GAACAAGATGGATTGCAGGGATCGGCCATTGAACAAGATGGATTGCACGCAGGTTCTCCGGCCGCTTGGGTGGAGAGGCT
 ```
 
 ### StartExtensions and EndExtensions Histograms
-Histograms representing the length of partial matches to the beginning or end of the query sequence will be output as png files (only if the entire query is identified).
+Histograms representing the length of partial matches to the beginning or end of the query sequence will be output as png files (only if the partial matches to beginning or end of query are identified, respectively).
 
 The Query_Extend.py script will generate the following file when the --intermediate-file-output is enabled: 
 
