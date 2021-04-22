@@ -1,6 +1,6 @@
 # Extending a Query Sequence
 
-The Query_Extend.py is an algorithm that takes a given set of Next Generation sequencing reads and aligns them to a given query sequence. The algorithm will output a fasta file with the extended query, and a table of all sequencing reads which aligned to the query. It can be specified whether to extend the query based on the longest read possible or the longest read which aligned with other sequencing segments. The algorithm is only able to find exact matches to the given query, and does not evaluate N in the sequencing read as a potential match.
+The Query_Extend.py is an algorithm that takes a given set of Next Generation sequencing reads and aligns them to a given query sequence. The algorithm will output a fasta file with the extended query, and a table of all sequencing reads which aligned to the query. It can be specified whether to extend the query based on the longest read possible or the longest read which aligned with other sequencing segments. The algorithm is only able to find exact matches to the given query, and does not evaluate N in the sequencing read as a potential match. The algorithm will also exit if no matches to the query are found, and the final fasta and table will not be output. 
 
 ## Getting Started
 
@@ -48,37 +48,22 @@ TTCAGGCTCTGGCATGCATTAGAAATGTGGCTTGTTTT
 GGGTGGTCCCCCTCCTTTACTTGTAACGTTGTCCTAAGTCGTTTTCTTTAGCCCATG
 ```
 
-A fixed-width fasta file is also supported in the form:
-```
->2S43D:03629:08794
-TTCAGGCTCTGGCATGCATTAGAAA
-TGTGGCTTGTTTT
->2S43D:08938:01257
-GGGTGGTCCCCCTCCTTTACTTGTA
-ACGTTGTCCTAAGTCGTTTTCTTTA
-GCCCATG
-```
+The query FASTA file is expected to only contain one read. 
 
-The query FASTA file is expected to only contain one read. An example of the query FASTA file is:
-```
->INITIAL_QUERY
-GGGATCGGCCATTGAACAAGATGGATTGCACGCAGGTTCTCCGGCCGCTTGGGTGGAGAGGCTATTCGGCTATGACT
-```
-
-The program will not output an intermediate file by default, however you can specify that an intermediate json file of all matches identified be output by including the following optional arguments:
+The program will not output an intermediate file by default. This file can still be generated when a match is not found for the entire query for troubleshooting purposes. To output an intermediate json file of all matches identified, include the following optional arguments:
 ```
 --intermediate-file-output
 ```
 
 The algorithm can extend the query by finding the longest possible segment (1) or by finding the longest segment which also matches other segments in the given matches (2), which is the default. The following commands can be used to specify the algorithm as (1) or (2) respectively:
 ```
---use-longest-match
---use-dense-match (default)
+--match-algorithm longest
+--match-algorithm dense (default)
 ```
 
 ## Expected Outputs
 
-The Query_Extend.py script will generate the following files:
+The Query_Extend.py script will generate the following files (only if the entire query is identified):
 
 ### ALLELES.aln
 A table containing the set of sequence reads which matched the query read in the following format:
@@ -91,11 +76,14 @@ sseqid  qseqid	sstart	send	qstart	qend
 *Note that when the reverse complement of a seqencing read matches the query, the sstart will be greater than the send
 
 ### ALLELES.fasta
-A fasta file containing the extended query in the following format:
+A fasta file containing the extended query in the following format (only if the entire query is identified):
 ```
 >EXTENDED_QUERY
 GAACAAGATGGATTGCAGGGATCGGCCATTGAACAAGATGGATTGCACGCAGGTTCTCCGGCCGCTTGGGTGGAGAGGCTATTCGGCTATGACTGCCAGCTTGGGTGGAGA
 ```
+
+### StartExtensions and EndExtensions Histograms
+Histograms representing the length of partial matches to the beginning or end of the query sequence will be output as png files (only if the entire query is identified).
 
 The Query_Extend.py script will generate the following file when the --intermediate-file-output is enabled: 
 
