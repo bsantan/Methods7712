@@ -20,6 +20,8 @@ To run the Query_Extend.py script, execute the following command, where SEQUENCE
 Query_Extend.py --sequencer-file SEQUENCERFILE --query-file QUERYFILE --output-directory OUTPUTDIRECTORY
 ```
 
+*Note that the specified output directory must already exist
+
 ### Optional Arguments
 
 By default, the program will output a match between the sequence and query with a length as small as 1. However you can change the minimum match length by including the following optional argument:
