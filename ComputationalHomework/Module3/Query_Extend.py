@@ -30,8 +30,7 @@ def defineArguments():
     #Allow user to specify whether to output intermediate file of sequence mathces
     parser.add_argument("--intermediate-file-output", dest="IntermediateFileOutput",required=False,action="store_true",help="IntermediateFileOutput")
     parser.add_argument("--output-directory",  dest="OutputDirectory",required=True,help="OutputDirectory")
-    parser.add_argument("--use-longest-match", dest="UseLongestMatch",required=False,action="store_true",help="UseLongestMatch")
-    parser.add_argument("--use-dense-match", dest="UseDenseMatch",required=False,action="store_true",help="UseDenseMatch",default=True)
+    parser.add_argument("--match-algorithm", dest="MatchAlgorithm",required=False,default="dense",help="MatchAlgorithm")
 
     return parser
 
@@ -48,13 +47,6 @@ def parse_file(filename):
     for i in range(0, len(lines)-1):
         fasta_dict = {}
         read = ''
-        #Separate each read based on fasta file format of ">" character
-        #if lines[i].startswith(">"):
-        #    fasta_dict["Seq_ID"] = lines[i].replace(">","")
-        #    #Remove whitespace after each read to get correct length
-        #    fasta_dict["Read"] = lines[i+1].strip()
-        #   fasta_list.append(fasta_dict)
-
 
         if lines[i].startswith(">"):
             fasta_dict["Seq_ID"] = lines[i].replace(">","")
@@ -89,7 +81,6 @@ def generate_reverse_sequence(reads):
         rev_dict["Read"] = reverse_comp(reads[i]["Read"])
         rev_dict["Seq_ID"] = reads[i]["Seq_ID"]
 
-        #if ("N" in reads[i]["Read"]): print("N present: ",reads[i]["Read"])
         #Append the reverse complemented read and original ID to a new dictionary
         fasta_list_reverse.append(rev_dict) 
 
@@ -101,8 +92,8 @@ def sliding_window(query_dict,seq_reads,min_match_length,rev: bool = False):
 
     match = []
 
-    #for i in range(0,len(seq_reads)):
-    for i in range(0,5000):
+    for i in range(0,len(seq_reads)):
+    #for i in range(0,5000):
         #Check if part of sequencing read matches part of query read
         num_seq_comparisons = len(query_dict[0]["Read"])-len(seq_reads[i]["Read"])+1 + 2*(len(seq_reads[i]["Read"])-1)
         #Initialize counts which will define the window of comparison
@@ -145,9 +136,6 @@ def sliding_window(query_dict,seq_reads,min_match_length,rev: bool = False):
                 seq_match_next = seq_reads[i]["Read"][seq_match_next_start:seq_match_end]
                 query_match_next = query_dict[0]["Read"][query_match_start:query_match_start+len(seq_match_next)]
                 if (seq_match_next == query_match_next):
-                    #print("seq_match_start: ",seq_match_start,"next: ",seq_match_next_start)
-                    #print("og: ",seq_match,query_match,j,len(seq_reads[i]["Read"]))
-                    #print("next: ",seq_match_next,query_match_next)
                     continue
 
             #Evaluate if the next seqeunce segment also matches query, and skip the current one if so for end of sequence read
@@ -156,9 +144,6 @@ def sliding_window(query_dict,seq_reads,min_match_length,rev: bool = False):
                 seq_match_next = seq_reads[i]["Read"][seq_match_start:seq_match_next_end]
                 query_match_next = query_dict[0]["Read"][query_match_start:query_match_start+len(seq_match_next)]
                 if (seq_match_next == query_match_next):
-                    #print("seq_match_end: ",seq_match_end,"next: ",seq_match_next_end)
-                    #print("og_end: ",seq_match,query_match,j,len(seq_reads[i]["Read"]))
-                    #print("next_end: ",seq_match_next,query_match_next)
                     continue
 
             #Check whether sequence and query segments match and are above defined minimum match length
@@ -191,6 +176,26 @@ def output_json(input_dict,output_dir):
     with open(output_dir+"/sequence_match.json", 'w') as json_file:
         json.dump(input_dict,json_file)
 
+def verify_query_presence(input_dict,query_dict):
+
+    index_match = []
+    #Initialize boolean at true, assuming query will be found
+    boolean = True
+
+    #Find all indices of query that have match
+    for i in range(0,len(input_dict)):
+        for j in range(input_dict[i]["qstart"],input_dict[i]["qend"]):
+            if (j not in index_match):
+                index_match.append(j)
+
+    for i in range(0,len(query_dict[0]["Read"])):
+        if (i not in index_match):
+            print("Part of query not found: index ",i,", ",query_dict[0]["Read"][i])
+            #Set boolean to false if any part of query is not found
+            boolean = False
+
+    return boolean
+
 def extend_query(input_dict,query_dict,output_dir):
 
     extension_segments_start = []
@@ -200,20 +205,12 @@ def extend_query(input_dict,query_dict,output_dir):
     for i in range(0,len(input_dict)):
         #When sequence read overlaps with beginning of query
         if (input_dict[i]["qstart"] == 0):
-            #print("Entire dict entry: ",input_dict[i])
             #Check if read is reverse complemented and append beginning part of matching sequence in that orientation
             if (input_dict[i]["sstart"] > input_dict[i]["send"]):
-                #print("ReverseComp")
                 extension_segments_start.append(input_dict[i]["Sequence"][0:input_dict[i]["send"]])
-                #print("cut point: ",input_dict[i]["send"],"Length: ",len(input_dict[i]["Sequence"]))
-                #print("Full start seq: ",input_dict[i]["Sequence"])
-                #print("Partial start seq: ",input_dict[i]["Sequence"][0:input_dict[i]["send"]])
             #When read is not reverse complement, append beginning part of mathcing sequence in normal orientation
             else:
                 extension_segments_start.append(input_dict[i]["Sequence"][0:input_dict[i]["sstart"]])
-                #print("cut point: ",input_dict[i]["sstart"],"Length: ",len(input_dict[i]["Sequence"]))
-                #print("Full start seq: ",input_dict[i]["Sequence"])
-                #print("Partial start seq: ",input_dict[i]["Sequence"][0:input_dict[i]["sstart"]])
 
         #When sequence read overlaps with end of query
         if (input_dict[i]["qend"] == len(query_dict[0]["Read"])):
@@ -234,14 +231,22 @@ def extend_query(input_dict,query_dict,output_dir):
     for i in range(len(extension_segments_end)):
        end_lengths.append(len(extension_segments_end[i]))       
 
-    #Output a histogram for lengths of all extensions at start and end of query
-    generate_histogram(start_lengths,"StartExtensionsHistogram",output_dir)
-    generate_histogram(end_lengths,"EndExtensionsHistogram",output_dir)
+    #Output a histogram for lengths of all extensions at start and end of query if matches were found
+    if(len(start_lengths) > 0):
+        generate_histogram(start_lengths,"Start",output_dir)
+    else: print("No matches for start of query found.")
+    if(len(end_lengths) > 0):
+        generate_histogram(end_lengths,"End",output_dir)
+    else: print("No matches for end of query found.")
 
     return extension_segments_start,extension_segments_end
 
 #Evaluate the extended query by identifying the longest segment at beginning and end of query to append
 def extend_with_longest_segment(query_dict,extension_segments_start,extension_segments_end):
+
+    #If no matches were found, append empty string to query
+    if(len(extension_segments_start) == 0): extension_segments_start.append("")
+    if(len(extension_segments_end) == 0): extension_segments_end.append("")
 
     #Find the longest extension in beginning and end
     start_extension = max(extension_segments_start,key=len)
@@ -256,59 +261,63 @@ def extend_with_longest_segment(query_dict,extension_segments_start,extension_se
 #Evaluate the extended query by identifying the longest segment that is aligned with another segment
 def extend_with_dense_match(query_dict,extension_segments_start,extension_segments_end):
 
-    start_extension = find_longest_sequence(extension_segments_start)
-    end_extension = find_longest_sequence(extension_segments_end)
+    start_extension = find_longest_sequence(extension_segments_start,"start")
+    end_extension = find_longest_sequence(extension_segments_end,"end")
 
     final_query = start_extension+query_dict[0]["Read"]+end_extension
 
     return final_query
 
 #Find longest sequence that has at least one other segment aligned
-def find_longest_sequence(extension_segments):
+def find_longest_sequence(extension_segments,segment):
 
-    #Find which segments match each other and store as dictionary of matching index with length
-    matching_indices = []
-    for i in range(len(extension_segments)):
-        for j in range(len(extension_segments)):
-            match_dict = {}
-            min_length = min(len(extension_segments[i]),len(extension_segments[j]))
-            first = extension_segments[i][0:min_length]
-            second = extension_segments[j][0:min_length]
-            if first == second and i != j:
-                match_dict["Ref_Index"] = i
-                match_dict["Match_Index"] = j
-                match_dict["Length"] = min_length
-                matching_indices.append(match_dict)
+    #If no matches to query were found, append empty string to query
+    if(len(extension_segments) == 0): sequence = ""
+    else:
+        print("There is length for ext seg: ",len(extension_segments))
+        #Find which segments match each other and store as dictionary of matching index with length
+        matching_indices = []
+        for i in range(len(extension_segments)):
+            for j in range(len(extension_segments)):
+                match_dict = {}
+                min_length = min(len(extension_segments[i]),len(extension_segments[j]))
+                if (segment == "end"):
+                    first = extension_segments[i][0:min_length]
+                    second = extension_segments[j][0:min_length]
+                elif (segment == "start"):
+                    first = extension_segments[i][len(extension_segments[i]) - min_length:len(extension_segments[i])]
+                    second = extension_segments[j][len(extension_segments[j]) - min_length:len(extension_segments[j])]
+                if first == second and i != j:
+                    match_dict["Ref_Index"] = i
+                    match_dict["Match_Index"] = j
+                    match_dict["Length"] = min_length
+                    matching_indices.append(match_dict)
 
-    #Get max length of all matching segments
-    max_match = max(matching_indices, key=lambda x:x['Length'])
-    max_match.pop("Length", None)
+        #If no matches between segments were found, append empty string to query
+        if(len(matching_indices) == 0): sequence = ""
+        else:
+            print("There is length for indices: ",len(matching_indices))
+            #Get max length of all matching segments
+            max_match = max(matching_indices, key=lambda x:x['Length'])
+            #Remove Length from dictionary to be able to compare only the 2 matching sequence lengths
+            max_match.pop("Length", None)
 
-    #Find the sequence of the shorter of the segments which aligned
-    index_max_match = min(max_match, key=lambda k: max_match[k])
-    sequence = extension_segments[max_match[index_max_match]]
+            #Find the sequence of the shorter of the segments which aligned
+            index_max_match = min(max_match, key=lambda k: max_match[k])
+            sequence = extension_segments[max_match[index_max_match]]
 
     return sequence
-
-    #Find index with the most matches
-    #max_match = [k for k in matching_indices_start.keys() if matching_indices_start[k] == max(matching_indices_start.values(),key=len)]
-
-    #Find index with the longest match
-    #max_match = [k for k in matching_indices_start.keys() if matching_indices_start[k] == max(matching_indices_start.values(),key=len)]
-
-    #sequence_start = extension_segments_start[max_match[0]]
-    #print(sequence_start,len(sequence_start))
-
 
 #Generate a histogram of lengths of extensions
 def generate_histogram(extension_list,name,output_dir):
 
-    plt.hist(extension_list, bins = len(extension_list))
-    plt.ylabel('# Occurances')
+    plt.hist(extension_list, bins = max(extension_list))
+    plt.title("Length of "+name+" Extensions")
+    plt.ylabel('# Occurences')
     plt.xlabel('Length of Extension')
 
     #Save histogram to user specified output folder.
-    plt.savefig(output_dir+"/"+name+".png")
+    plt.savefig(output_dir+"/"+name+"Extensions.png")
     plt.clf()
 
 def generate_alleles_file(final_query,output_dir):
@@ -341,14 +350,13 @@ def main():
     MinMatchLength = args.MinMatchLength
     IntermediateFileOutput = args.IntermediateFileOutput
     OutputDirectory = args.OutputDirectory
-    UseLongestMatch = args.UseLongestMatch
-    UseDenseMatch = args.UseDenseMatch
+    MatchAlgorithm = args.MatchAlgorithm
 
     #Command expected to execute the script
     cmd = "--sequencer-file %s --query-file %s --min-match-length %i --output-directory %s" % (SequencerFile,QueryFile,MinMatchLength,OutputDirectory)
     
     starttime = datetime.now()
-    print("Minimum Match Length: ",MinMatchLength,"Intermediate File Output: ",IntermediateFileOutput)
+    print("Minimum Match Length: ",MinMatchLength,"Intermediate File Output: ",IntermediateFileOutput,"Match Algorithm: ",MatchAlgorithm)
 
     print("Start Time: ",starttime)
 
@@ -370,29 +378,36 @@ def main():
     if args.IntermediateFileOutput:
         output_json(seq_hash_all,OutputDirectory)
 
+    print("Length of matching segments forward: ",len(seq_hash_forward))
+    print("Length of matching segments reverse: ",len(seq_hash_reverse))
+
+    #Validate that entirety of query match is found.
+    query_presence = verify_query_presence(seq_hash_all,query)
+
+    #Only perform extension if match to entire query is found, exit otherwise.
+    if (query_presence is True):
+
+        extend_start,extend_end = extend_query(seq_hash_all,query,OutputDirectory)
+
+        #Use method according to user specification
+        if MatchAlgorithm == "longest":
+            query_extension = extend_with_longest_segment(query,extend_start,extend_end)
+        
+        if MatchAlgorithm == "dense":
+            query_extension = extend_with_dense_match(query,extend_start,extend_end)
+
+        print("Length of extended query: ",len(query_extension))
+
+        generate_alleles_file(query_extension,OutputDirectory)
+
+        generate_table(seq_hash_all,OutputDirectory)
+    else:
+        #Only printed if entire query match is not found.
+        print("No output files will be generated as query match not found.")
 
     endtime = datetime.now()
     tdelta = endtime-starttime
     print("Total computation time: ",tdelta)
-
-    print("Length of matching segments forward: ",len(seq_hash_forward))
-    print("Length of matching segments reverse: ",len(seq_hash_reverse))
-
-    extend_start,extend_end = extend_query(seq_hash_all,query,OutputDirectory)
-
-    #Use method according to user specification
-    if args.UseLongestMatch:
-        query_extension = extend_with_longest_segment(query,extend_start,extend_end)
-    
-    if args.UseDenseMatch:
-        query_extension = extend_with_dense_match(query,extend_start,extend_end)
-
-
-    print(len(query_extension))
-
-    generate_alleles_file(query_extension,OutputDirectory)
-
-    generate_table(seq_hash_all,OutputDirectory)
 
 if __name__ == '__main__':
     main()
